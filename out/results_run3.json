@@ -1,0 +1,565 @@
+[
+  {
+    "mode": "baseline",
+    "n_scenarios": 5,
+    "dropped_invalid": 0,
+    "bugs_found": 2,
+    "bugs_total": 7,
+    "false_positive_invariants_on_clean": [],
+    "rows": [
+      {
+        "bug": "negative_amount",
+        "detected": true,
+        "invariants": [
+          "amount_must_be_positive"
+        ]
+      },
+      {
+        "bug": "idempotency",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "double_capture",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "refund_overflow",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "refund_race",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "refund_before_capture",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "wrong_status",
+        "detected": true,
+        "invariants": [
+          "unknown_id_must_404"
+        ]
+      }
+    ],
+    "repros": [
+      {
+        "bug": "negative_amount",
+        "invariant": "amount_must_be_positive",
+        "original_steps": 1,
+        "minimal": {
+          "name": "create negative",
+          "description": "",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": -5
+              },
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "wrong_status",
+        "invariant": "unknown_id_must_404",
+        "original_steps": 1,
+        "minimal": {
+          "name": "get unknown",
+          "description": "",
+          "steps": [
+            {
+              "method": "GET",
+              "path": "/payments/pay_missing",
+              "body": null,
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "mode": "llm_rag",
+    "n_scenarios": 12,
+    "dropped_invalid": 0,
+    "bugs_found": 7,
+    "bugs_total": 7,
+    "false_positive_invariants_on_clean": [],
+    "rows": [
+      {
+        "bug": "negative_amount",
+        "detected": true,
+        "invariants": [
+          "amount_must_be_positive"
+        ]
+      },
+      {
+        "bug": "idempotency",
+        "detected": true,
+        "invariants": [
+          "idempotency_key_reuse"
+        ]
+      },
+      {
+        "bug": "double_capture",
+        "detected": true,
+        "invariants": [
+          "capture_only_once"
+        ]
+      },
+      {
+        "bug": "refund_overflow",
+        "detected": true,
+        "invariants": [
+          "refunds_within_amount"
+        ]
+      },
+      {
+        "bug": "refund_race",
+        "detected": true,
+        "invariants": [
+          "refunds_within_amount"
+        ]
+      },
+      {
+        "bug": "refund_before_capture",
+        "detected": true,
+        "invariants": [
+          "refund_requires_capture"
+        ]
+      },
+      {
+        "bug": "wrong_status",
+        "detected": true,
+        "invariants": [
+          "unknown_id_must_404"
+        ]
+      }
+    ],
+    "repros": [
+      {
+        "bug": "negative_amount",
+        "invariant": "amount_must_be_positive",
+        "original_steps": 1,
+        "minimal": {
+          "name": "zero_amount_payment",
+          "description": "A payment with zero amount must be rejected with a 4xx error",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 0,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-zero"
+              },
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "idempotency",
+        "invariant": "idempotency_key_reuse",
+        "original_steps": 2,
+        "minimal": {
+          "name": "idempotency_key_reuse",
+          "description": "Creating a payment twice with the same Idempotency-Key must return the same payment",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 100,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-123"
+              },
+              "save_as": "p1",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 100,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-123"
+              },
+              "save_as": "p2",
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "double_capture",
+        "invariant": "capture_only_once",
+        "original_steps": 3,
+        "minimal": {
+          "name": "double_capture",
+          "description": "A payment can be captured only once; a second capture must be rejected with 409",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 250,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-cap-1"
+              },
+              "save_as": "pid",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/capture",
+              "body": {},
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/capture",
+              "body": {},
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "refund_overflow",
+        "invariant": "refunds_within_amount",
+        "original_steps": 3,
+        "minimal": {
+          "name": "refund_exceeding_amount",
+          "description": "The sum of all successful refunds for a payment must never exceed the payment amount",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 100,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-exceed"
+              },
+              "save_as": "pid",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/capture",
+              "body": {},
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/refund",
+              "body": {
+                "amount": 150
+              },
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "refund_race",
+        "invariant": "refunds_within_amount",
+        "original_steps": 3,
+        "minimal": {
+          "name": "concurrent_refunds",
+          "description": "Concurrent refund requests exceeding total amount must not result in over-refunding",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 100,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-conc-ref"
+              },
+              "save_as": "pid",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/capture",
+              "body": {},
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/refund",
+              "body": {
+                "amount": 100
+              },
+              "headers": {},
+              "save_as": null,
+              "repeat": 2
+            }
+          ]
+        }
+      },
+      {
+        "bug": "refund_before_capture",
+        "invariant": "refund_requires_capture",
+        "original_steps": 2,
+        "minimal": {
+          "name": "refund_unCaptured_payment",
+          "description": "Refunding an authorized payment without capture must be rejected",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 500,
+                "currency": "INR"
+              },
+              "headers": {
+                "Idempotency-Key": "key-ref-1"
+              },
+              "save_as": "pid",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{pid}/refund",
+              "body": {
+                "amount": 500
+              },
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "wrong_status",
+        "invariant": "unknown_id_must_404",
+        "original_steps": 1,
+        "minimal": {
+          "name": "get_non_existent_payment",
+          "description": "Attempting to retrieve a payment that does not exist should return a 404",
+          "steps": [
+            {
+              "method": "GET",
+              "path": "/payments/pay_missing_12345",
+              "body": null,
+              "headers": {},
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "mode": "llm_norag",
+    "n_scenarios": 12,
+    "dropped_invalid": 0,
+    "bugs_found": 4,
+    "bugs_total": 7,
+    "false_positive_invariants_on_clean": [],
+    "rows": [
+      {
+        "bug": "negative_amount",
+        "detected": true,
+        "invariants": [
+          "amount_must_be_positive"
+        ]
+      },
+      {
+        "bug": "idempotency",
+        "detected": true,
+        "invariants": [
+          "idempotency_key_reuse"
+        ]
+      },
+      {
+        "bug": "double_capture",
+        "detected": true,
+        "invariants": [
+          "capture_only_once"
+        ]
+      },
+      {
+        "bug": "refund_overflow",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "refund_race",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "refund_before_capture",
+        "detected": false,
+        "invariants": []
+      },
+      {
+        "bug": "wrong_status",
+        "detected": true,
+        "invariants": [
+          "unknown_id_must_404"
+        ]
+      }
+    ],
+    "repros": [
+      {
+        "bug": "negative_amount",
+        "invariant": "amount_must_be_positive",
+        "original_steps": 2,
+        "minimal": {
+          "name": "Zero and Negative Amount Payments",
+          "description": "Tests validation bounds by creating a payment with a zero or negative amount.",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": -500,
+                "currency": "INR"
+              },
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "idempotency",
+        "invariant": "idempotency_key_reuse",
+        "original_steps": 2,
+        "minimal": {
+          "name": "Idempotency Key Reuse on Creation",
+          "description": "Sends multiple payment creation requests with the same Idempotency-Key to ensure duplicate payments are not created.",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 1000,
+                "currency": "INR"
+              },
+              "headers": {
+                "Content-Type": "application/json",
+                "Idempotency-Key": "test-key-12345"
+              },
+              "save_as": "p_id_1",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 2000,
+                "currency": "INR"
+              },
+              "headers": {
+                "Content-Type": "application/json",
+                "Idempotency-Key": "test-key-12345"
+              },
+              "save_as": "p_id_2",
+              "repeat": 1
+            }
+          ]
+        }
+      },
+      {
+        "bug": "double_capture",
+        "invariant": "capture_only_once",
+        "original_steps": 2,
+        "minimal": {
+          "name": "Double Capture Race Condition",
+          "description": "Sends concurrent capture requests for the same authorized payment to check for double-capture vulnerabilities.",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments",
+              "body": {
+                "amount": 500,
+                "currency": "INR"
+              },
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "save_as": "p_id",
+              "repeat": 1
+            },
+            {
+              "method": "POST",
+              "path": "/payments/{p_id}/capture",
+              "body": null,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "save_as": null,
+              "repeat": 2
+            }
+          ]
+        }
+      },
+      {
+        "bug": "wrong_status",
+        "invariant": "unknown_id_must_404",
+        "original_steps": 1,
+        "minimal": {
+          "name": "Capture Non-Existent Payment",
+          "description": "Attempts to capture a payment ID that does not exist in the system.",
+          "steps": [
+            {
+              "method": "POST",
+              "path": "/payments/pay_nonexistent/capture",
+              "body": null,
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "save_as": null,
+              "repeat": 1
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

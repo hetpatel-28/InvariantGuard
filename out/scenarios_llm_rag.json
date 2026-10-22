@@ -1,0 +1,359 @@
+[
+  {
+    "name": "idempotency_key_reuse",
+    "description": "Creating a payment twice with the same Idempotency-Key must return the same payment",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-123"
+        },
+        "save_as": "p1",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-123"
+        },
+        "save_as": "p2",
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "refund_unCaptured_payment",
+    "description": "Refunding an authorized payment without capture must be rejected",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 500,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-ref-1"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 500
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "zero_amount_payment",
+    "description": "A payment with zero amount must be rejected with a 4xx error",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 0,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-zero"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "negative_amount_payment",
+    "description": "A payment with negative amount must be rejected with a 4xx error",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": -100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-neg"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "double_capture",
+    "description": "A payment can be captured only once; a second capture must be rejected with 409",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 250,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-cap-1"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "refund_exceeding_amount",
+    "description": "The sum of all successful refunds for a payment must never exceed the payment amount",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-exceed"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 150
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "concurrent_capture",
+    "description": "Concurrent capture requests on the same payment must result in exactly one success",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 300,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-conc-cap"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 5
+      }
+    ]
+  },
+  {
+    "name": "refund_after_full_refund",
+    "description": "After a payment is fully refunded, any further refund must be rejected",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 200,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-full-ref"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 200
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 10
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "multiple_partial_refunds_exceed",
+    "description": "Multiple valid partial refunds that together exceed the total amount should be rejected on the last attempt",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-parts"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 60
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 50
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "get_non_existent_payment",
+    "description": "Attempting to retrieve a payment that does not exist should return a 404",
+    "steps": [
+      {
+        "method": "GET",
+        "path": "/payments/pay_missing_12345",
+        "body": null,
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "capture_non_existent_payment",
+    "description": "Attempting to capture a non-existent payment should return a 404 or 4xx",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments/pay_missing_999/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "concurrent_refunds",
+    "description": "Concurrent refund requests exceeding total amount must not result in over-refunding",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Idempotency-Key": "key-conc-ref"
+        },
+        "save_as": "pid",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/capture",
+        "body": {},
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{pid}/refund",
+        "body": {
+          "amount": 100
+        },
+        "headers": {},
+        "save_as": null,
+        "repeat": 3
+      }
+    ]
+  }
+]

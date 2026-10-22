@@ -1,0 +1,319 @@
+[
+  {
+    "name": "Capture Non-Existent Payment",
+    "description": "Attempts to capture a payment ID that does not exist in the system.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments/pay_nonexistent/capture",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Refund Without Capture",
+    "description": "Attempts to refund a payment immediately after creation, skipping the capture step.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 1000,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": "p_id",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{p_id}/refund",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Double Capture Race Condition",
+    "description": "Sends concurrent capture requests for the same authorized payment to check for double-capture vulnerabilities.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 500,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": "p_id",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{p_id}/capture",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 5
+      }
+    ]
+  },
+  {
+    "name": "Zero and Negative Amount Payments",
+    "description": "Tests validation bounds by creating a payment with a zero or negative amount.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 0,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": -500,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Idempotency Key Reuse on Creation",
+    "description": "Sends multiple payment creation requests with the same Idempotency-Key to ensure duplicate payments are not created.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 1000,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "test-key-12345"
+        },
+        "save_as": "p_id_1",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 2000,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "test-key-12345"
+        },
+        "save_as": "p_id_2",
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Capture Already Captured Payment",
+    "description": "Attempts to capture a payment that has already been successfully captured.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 1500,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": "p_id",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{p_id}/capture",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{p_id}/capture",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Double Refund Race Condition",
+    "description": "Sends concurrent refund requests for a captured payment to verify protection against double-refunds.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 2000,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": "p_id",
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{p_id}/capture",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments/{p_id}/refund",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 3
+      }
+    ]
+  },
+  {
+    "name": "Unsupported Currency Test",
+    "description": "Attempts to create a payment with a currency other than INR to test currency validation constraints.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 1000,
+          "currency": "USD"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Malformed JSON Body Payload",
+    "description": "Sends invalid body structures and missing mandatory fields during payment creation.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      },
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": "not_an_integer",
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Refund Non-Existent Payment",
+    "description": "Attempts to execute a refund on a payment ID that does not exist.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments/pay_ghost_999/refund",
+        "body": null,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  },
+  {
+    "name": "Concurrent Creation Race Condition",
+    "description": "Sends multiple concurrent payment creation requests with unique details to test system throughput and concurrency limits.",
+    "steps": [
+      {
+        "method": "POST",
+        "path": "/payments",
+        "body": {
+          "amount": 100,
+          "currency": "INR"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "save_as": null,
+        "repeat": 5
+      }
+    ]
+  },
+  {
+    "name": "Get Non-Existent Payment Details",
+    "description": "Queries the GET endpoint with an unknown payment identifier to verify correct 404 responses.",
+    "steps": [
+      {
+        "method": "GET",
+        "path": "/payments/pay_unknown_abc",
+        "body": null,
+        "headers": {},
+        "save_as": null,
+        "repeat": 1
+      }
+    ]
+  }
+]

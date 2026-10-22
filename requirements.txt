@@ -1,0 +1,7 @@
+fastapi
+httpx
+pydantic
+uvicorn
+pytest
+# optional (better retrieval); the project also works without it:
+# sentence-transformers
